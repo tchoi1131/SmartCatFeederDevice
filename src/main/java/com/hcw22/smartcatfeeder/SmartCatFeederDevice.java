@@ -15,7 +15,6 @@ import com.hcw22.smartcatfeeder.SystemConfig.KeyStorePasswordPair;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
-import java.security.KeyStore;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -86,7 +85,7 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
                     connectBtn.setText("Disconnect");
                 }
                 else{
-                    disconnectAWSIoTDevice(thingNameTxtFld.getText());
+                    disconnectAWSIoTDevice();
                     connectBtn.setText("Connect");
                 }
             }
@@ -181,7 +180,7 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         }
     }
     
-    private void disconnectAWSIoTDevice(String thingName){        
+    private void disconnectAWSIoTDevice(){        
         try {
             device.delete();
             awsIotClient.detach(device);
