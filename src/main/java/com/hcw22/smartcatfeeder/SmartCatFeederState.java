@@ -19,7 +19,7 @@ public class SmartCatFeederState {
 
     public static class Document {
         public String date = "1900-01-01";
-        public double weight = 0.0;
-        public double foodConsump = 0.0;
+        public double catWeight = 0.0;
+        public double foodWeight = 0.0;
     }
 }

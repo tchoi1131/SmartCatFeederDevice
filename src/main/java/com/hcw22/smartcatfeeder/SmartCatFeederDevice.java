@@ -12,6 +12,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hcw22.smartcatfeeder.SystemConfig.KeyStorePasswordPair;
+import java.awt.Color;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
@@ -61,11 +62,15 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         thingNameLbl = new JLabel();
         thingNameTxtFld = new JTextField();
         connectBtn = new JButton("Connect");
+        foodAmountLbl = new JLabel();
+        foodAmountSpnr = new JSpinner();
+        feedBtn = new JButton("Feed");
         dateLbl = new JLabel();
         catWeightLbl = new JLabel();
-        weightSpnr = new JSpinner();
+        catWeightSpnr = new JSpinner();
         foodWeightLbl = new JLabel();
         foodWeightSpnr = new JSpinner();
+        sendDataBtn = new JButton("Send");
         
         thingNameLbl.setText("Device/Thing Name: ");
         thingNameLbl.setHorizontalAlignment(SwingConstants.RIGHT);
@@ -74,14 +79,15 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         thingNameTxtFld.setText(SystemConfig.DEFAULT_THING_NAME);
         connectionPanel.add(thingNameTxtFld);
         
-        
-        connectionPanel.add(new JLabel());
-        
         connectBtn.addActionListener( new ActionListener(){
             @Override
             public void actionPerformed(ActionEvent e){
                 if(connectBtn.getText() == "Connect"){
-                    connectAWSIoTDevice(thingNameTxtFld.getText());
+                    try {
+                        connectAWSIoTDevice(thingNameTxtFld.getText());
+                    } catch (IOException ex) {
+                        Logger.getLogger(SmartCatFeederDevice.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                     connectBtn.setText("Disconnect");
                 }
                 else{
@@ -92,6 +98,22 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         });
         
         connectionPanel.add(connectBtn);
+        
+        foodAmountLbl.setText("Amount of Food: ");
+        foodAmountLbl.setHorizontalAlignment(SwingConstants.RIGHT);
+        feedPanel.add(foodAmountLbl);
+        
+        foodAmountSpnr.setModel(new SpinnerNumberModel(10.0, 0.0, 100.0, 0.1));
+        feedPanel.add(foodAmountSpnr);
+        
+        feedBtn.addActionListener( new ActionListener(){
+            @Override
+            public void actionPerformed(ActionEvent e){
+                foodWeightSpnr.setValue((double)foodWeightSpnr.getValue() + (double)foodAmountSpnr.getValue());
+            }
+        });
+        
+        feedPanel.add(feedBtn);
         
         dateLbl.setText("Date: ");
         dateLbl.setHorizontalAlignment(SwingConstants.RIGHT);
@@ -105,7 +127,6 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         p.put("text.year", "Year");
         JDatePanelImpl datePanel = new JDatePanelImpl(model,p);
         datePicker = new JDatePickerImpl(datePanel,new DateLabelFormatter());
-        datePicker.getJFormattedTextField().getText();
         
         dataPanel.add(datePicker);
 
@@ -113,8 +134,8 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         catWeightLbl.setHorizontalAlignment(SwingConstants.RIGHT);
         dataPanel.add(catWeightLbl);
         
-        weightSpnr.setModel(new SpinnerNumberModel(3.0, 0.0, 100.0, 0.1));
-        dataPanel.add(weightSpnr);
+        catWeightSpnr.setModel(new SpinnerNumberModel(3.0, 0.0, 100.0, 0.1));
+        dataPanel.add(catWeightSpnr);
 
         foodWeightLbl.setText("Food Weight: ");
         foodWeightLbl.setHorizontalAlignment(SwingConstants.RIGHT);
@@ -123,6 +144,21 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         
         foodWeightSpnr.setModel(new SpinnerNumberModel(3.0, 0.0, 100.0, 0.1));
         dataPanel.add(foodWeightSpnr);
+        
+        dataPanel.add(new JLabel());
+        
+        sendDataBtn.addActionListener( new ActionListener(){
+            @Override
+            public void actionPerformed(ActionEvent e){
+                try {
+                    setFeederShadowState();
+                } catch (JsonProcessingException ex) {
+                    Logger.getLogger(SmartCatFeederDevice.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        });
+        
+        dataPanel.add(sendDataBtn);
 
         pack();
         
@@ -139,12 +175,17 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
             feederState = objectMapper.readValue(shadowState, SmartCatFeederState.class);
         } catch (AWSIotException ex) {
                 System.out.println(System.currentTimeMillis() + ": get failed for " + shadowState);
+                feederState = new SmartCatFeederState();
         }
     }
     
     private void setFeederShadowState() throws JsonProcessingException{
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        
+        feederState.state.reported.date = datePicker.getJFormattedTextField().getText();
+        feederState.state.reported.catWeight = (double)catWeightSpnr.getValue();
+        feederState.state.reported.foodWeight = (double)foodWeightSpnr.getValue();
         String jsonState = objectMapper.writeValueAsString(feederState);
 
         try {
@@ -167,14 +208,15 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         }
     }
     
-    private void connectAWSIoTDevice(String thingName){
+    private void connectAWSIoTDevice(String thingName) throws IOException{
         device = new AWSIotDevice(thingName);
         
         try {
             awsIotClient.attach(device);
             awsIotClient.connect();
-            device.delete();
+            getFeederShadowState();
             statusLbl.setText("Connected");
+            statusLbl.setForeground(Color.GREEN);
         } catch (AWSIotException ex) {
             Logger.getLogger(SmartCatFeederDevice.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -182,11 +224,11 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
     
     private void disconnectAWSIoTDevice(){        
         try {
-            device.delete();
             awsIotClient.detach(device);
             awsIotClient.disconnect();
             
             statusLbl.setText("Disconnected");
+            statusLbl.setForeground(Color.RED);
         } catch (AWSIotException ex) {
             Logger.getLogger(SmartCatFeederDevice.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -200,19 +242,32 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
+        java.awt.GridBagConstraints gridBagConstraints;
 
         dataPanel = new javax.swing.JPanel();
         statusPanel = new javax.swing.JPanel();
         jLabel1 = new javax.swing.JLabel();
         statusLbl = new javax.swing.JLabel();
         connectionPanel = new javax.swing.JPanel();
+        feedPanel = new javax.swing.JPanel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("SmartCatFeederDevice");
+        java.awt.GridBagLayout layout = new java.awt.GridBagLayout();
+        layout.rowWeights = new double[] {7.0};
+        getContentPane().setLayout(layout);
 
         dataPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Data"));
-        dataPanel.setLayout(new java.awt.GridLayout(3, 2));
-        getContentPane().add(dataPanel, java.awt.BorderLayout.CENTER);
+        dataPanel.setLayout(new java.awt.GridLayout(4, 2));
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 2;
+        gridBagConstraints.gridwidth = java.awt.GridBagConstraints.REMAINDER;
+        gridBagConstraints.gridheight = 3;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTH;
+        gridBagConstraints.weighty = 3.0;
+        getContentPane().add(dataPanel, gridBagConstraints);
 
         statusPanel.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.LOWERED));
 
@@ -230,24 +285,49 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
                 .addComponent(jLabel1)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(statusLbl)
-                .addContainerGap(202, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         statusPanelLayout.setVerticalGroup(
             statusPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, statusPanelLayout.createSequentialGroup()
-                .addGap(0, 11, Short.MAX_VALUE)
+                .addGap(0, 0, Short.MAX_VALUE)
                 .addGroup(statusPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel1)
                     .addComponent(statusLbl)))
         );
 
-        getContentPane().add(statusPanel, java.awt.BorderLayout.PAGE_END);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 5;
+        gridBagConstraints.gridwidth = java.awt.GridBagConstraints.REMAINDER;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.SOUTH;
+        gridBagConstraints.weighty = 1.0;
+        getContentPane().add(statusPanel, gridBagConstraints);
 
         connectionPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Connection"));
         connectionPanel.setToolTipText("");
         connectionPanel.setName(""); // NOI18N
-        connectionPanel.setLayout(new java.awt.GridLayout(2, 2));
-        getContentPane().add(connectionPanel, java.awt.BorderLayout.PAGE_START);
+        connectionPanel.setLayout(new java.awt.GridLayout(1, 3));
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 0;
+        gridBagConstraints.gridwidth = java.awt.GridBagConstraints.REMAINDER;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTH;
+        gridBagConstraints.weighty = 2.0;
+        getContentPane().add(connectionPanel, gridBagConstraints);
+
+        feedPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Feed"));
+        feedPanel.setLayout(new java.awt.GridLayout(1, 3));
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.gridwidth = java.awt.GridBagConstraints.REMAINDER;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTH;
+        gridBagConstraints.weighty = 1.0;
+        getContentPane().add(feedPanel, gridBagConstraints);
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
@@ -290,18 +370,23 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
     private AWSIotMqttClient awsIotClient;
     private AWSIotDevice device;
     private SmartCatFeederState feederState;
+    private JTextField thingNameTxtFld;
+    private JButton connectBtn;
     private JDatePickerImpl datePicker;
     private JSpinner foodWeightSpnr;
     private JLabel thingNameLbl;
+    private JLabel foodAmountLbl;
+    private JSpinner foodAmountSpnr;
+    private JButton feedBtn;
     private JLabel dateLbl;
     private JLabel catWeightLbl;
     private JLabel foodWeightLbl;
-    private JSpinner weightSpnr;
-    private JTextField thingNameTxtFld;
-    private JButton connectBtn;
+    private JSpinner catWeightSpnr;
+    private JButton sendDataBtn;
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel connectionPanel;
     private javax.swing.JPanel dataPanel;
+    private javax.swing.JPanel feedPanel;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel statusLbl;
     private javax.swing.JPanel statusPanel;
