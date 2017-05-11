@@ -34,8 +34,7 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
 
     public class DateLabelFormatter extends AbstractFormatter {
 
-        private String datePattern = "yyyy-MM-dd";
-        private SimpleDateFormat dateFormatter = new SimpleDateFormat(datePattern);
+        private SimpleDateFormat dateFormatter = new SimpleDateFormat(SystemConfig.DATE_PATTERN);
 
         @Override
         public Object stringToValue(String text) throws ParseException {
@@ -109,7 +108,11 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         feedBtn.addActionListener( new ActionListener(){
             @Override
             public void actionPerformed(ActionEvent e){
-                foodWeightSpnr.setValue((double)foodWeightSpnr.getValue() + (double)foodAmountSpnr.getValue());
+                try {
+                    feed((double)foodAmountSpnr.getValue());
+                } catch (IOException ex) {
+                    Logger.getLogger(SmartCatFeederDevice.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         });
         
@@ -154,6 +157,8 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
                     setFeederShadowState();
                 } catch (JsonProcessingException ex) {
                     Logger.getLogger(SmartCatFeederDevice.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (ParseException ex) {
+                    Logger.getLogger(SmartCatFeederDevice.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         });
@@ -163,6 +168,55 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         pack();
         
         initIoTMQTTClient();
+    }
+    
+    private void feed(double amount) throws IOException{
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        
+        int dateValue   = datePicker.getModel().getYear() * 10000
+                        + (datePicker.getModel().getMonth() + 1) * 100
+                        + datePicker.getModel().getDay();
+                
+        feederState.state.desired.date = dateValue;
+        feederState.state.desired.mode = 0;
+        feederState.state.desired.catWeight = (double)catWeightSpnr.getValue();
+        feederState.state.desired.foodWeight = (double)foodWeightSpnr.getValue();
+        
+        feederState.state.reported.date = dateValue;
+        feederState.state.reported.mode = 0;
+        feederState.state.reported.catWeight = (double)catWeightSpnr.getValue();
+        feederState.state.reported.foodWeight = (double)foodWeightSpnr.getValue();
+        String jsonState = objectMapper.writeValueAsString(feederState);
+
+        try {
+            // Send updated document to the shadow
+            device.update(jsonState);
+        } catch (AWSIotException e) {
+            System.out.println(System.currentTimeMillis() + ": update failed for " + jsonState);
+        }
+        
+        double updatedFoodWeight = (double)foodWeightSpnr.getValue() + amount;
+        
+        feederState.state.desired.date = dateValue;
+        feederState.state.desired.mode = 1;
+        feederState.state.desired.catWeight = (double)catWeightSpnr.getValue();
+        feederState.state.desired.foodWeight = updatedFoodWeight;
+        
+        feederState.state.reported.date = dateValue;
+        feederState.state.reported.mode = 1;
+        feederState.state.reported.catWeight = (double)catWeightSpnr.getValue();
+        feederState.state.reported.foodWeight = updatedFoodWeight;
+        jsonState = objectMapper.writeValueAsString(feederState);
+
+        try {
+            // Send updated document to the shadow
+            device.update(jsonState);
+        } catch (AWSIotException e) {
+            System.out.println(System.currentTimeMillis() + ": update failed for " + jsonState);
+        }
+        
+        foodWeightSpnr.setValue(updatedFoodWeight);
     }
     
     private void getFeederShadowState() throws IOException{
@@ -179,11 +233,20 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         }
     }
     
-    private void setFeederShadowState() throws JsonProcessingException{
+    private void setFeederShadowState() throws JsonProcessingException, ParseException{
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        int dateValue   = datePicker.getModel().getYear() * 10000
+                        + (datePicker.getModel().getMonth() + 1) * 100
+                        + datePicker.getModel().getDay();
+
+        feederState.state.desired.date = dateValue;
+        feederState.state.desired.mode = 0;
+        feederState.state.desired.catWeight = (double)catWeightSpnr.getValue();
+        feederState.state.desired.foodWeight = (double)foodWeightSpnr.getValue();
         
-        feederState.state.reported.date = datePicker.getJFormattedTextField().getText();
+        feederState.state.reported.date = dateValue;
+        feederState.state.reported.mode = 0;
         feederState.state.reported.catWeight = (double)catWeightSpnr.getValue();
         feederState.state.reported.foodWeight = (double)foodWeightSpnr.getValue();
         String jsonState = objectMapper.writeValueAsString(feederState);

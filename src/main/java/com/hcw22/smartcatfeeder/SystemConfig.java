@@ -20,6 +20,10 @@ import java.security.SecureRandom;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 
 /**
  *
@@ -31,6 +35,7 @@ public class SystemConfig {
     public final static String CLIENT_ID = "SmartCatFeeder";
     public final static String CERTIFICATE_FILE_PATH = "cf78374c03-certificate.pem.crt";
     public final static String PRIVATE_KEY_FILE_PATH = "cf78374c03-private.pem.key";
+    public final static String DATE_PATTERN = "yyyy-MM-dd";
     
     public static class KeyStorePasswordPair {
         public KeyStore keyStore;

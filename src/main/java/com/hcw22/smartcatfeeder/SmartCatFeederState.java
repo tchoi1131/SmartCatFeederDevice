@@ -18,7 +18,8 @@ public class SmartCatFeederState {
     }
 
     public static class Document {
-        public String date = "1900-01-01";
+        public int date = 19000101;
+        public byte mode = 0;   //0 = eat, 1 = feed
         public double catWeight = 0.0;
         public double foodWeight = 0.0;
     }
