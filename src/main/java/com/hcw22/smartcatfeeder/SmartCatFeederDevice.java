@@ -196,6 +196,12 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
             System.out.println(System.currentTimeMillis() + ": update failed for " + jsonState);
         }
         
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException ex) {
+            Logger.getLogger(SmartCatFeederDevice.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
         double updatedFoodWeight = (double)foodWeightSpnr.getValue() + amount;
         
         feederState.state.desired.date = dateValue;
