@@ -206,7 +206,7 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         }
         
         try {
-            Thread.sleep(1000);
+            Thread.sleep(2000);
         } catch (InterruptedException ex) {
             Logger.getLogger(SmartCatFeederDevice.class.getName()).log(Level.SEVERE, null, ex);
         }
