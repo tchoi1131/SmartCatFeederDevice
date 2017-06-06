@@ -141,7 +141,7 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         catWeightLbl.setHorizontalAlignment(SwingConstants.RIGHT);
         dataPanel.add(catWeightLbl);
         
-        catWeightSpnr.setModel(new SpinnerNumberModel(3.0, 0.0, 100.0, 0.1));
+        catWeightSpnr.setModel(new SpinnerNumberModel(10.0, 0.0, 100.0, 0.1));
         dataPanel.add(catWeightSpnr);
 
         foodWeightLbl.setText("Food Weight: ");
@@ -149,7 +149,7 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         
         dataPanel.add(foodWeightLbl);
         
-        foodWeightSpnr.setModel(new SpinnerNumberModel(3.0, 0.0, 100.0, 0.1));
+        foodWeightSpnr.setModel(new SpinnerNumberModel(10.0, 0.0, 100.0, 0.1));
         dataPanel.add(foodWeightSpnr);
         
         dataPanel.add(new JLabel());
