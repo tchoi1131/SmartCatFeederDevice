@@ -7,7 +7,10 @@ package com.hcw22.smartcatfeeder;
 
 import com.amazonaws.services.iot.client.AWSIotDevice;
 import com.amazonaws.services.iot.client.AWSIotException;
+import com.amazonaws.services.iot.client.AWSIotMessage;
 import com.amazonaws.services.iot.client.AWSIotMqttClient;
+import com.amazonaws.services.iot.client.AWSIotQos;
+import com.amazonaws.services.iot.client.AWSIotTopic;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,6 +28,7 @@ import java.util.logging.Logger;
 import javax.swing.JFormattedTextField.AbstractFormatter;
 import javax.swing.*;
 import org.jdatepicker.impl.*;
+import org.json.JSONObject;
 
 /**
  *
@@ -177,21 +181,26 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         int dateValue   = datePicker.getModel().getYear() * 10000
                         + (datePicker.getModel().getMonth() + 1) * 100
                         + datePicker.getModel().getDay();
-                
+        
         feederState.state.desired.date = dateValue;
         feederState.state.desired.mode = 0;
+        feederState.state.desired.addFoodWeight = 0;
         feederState.state.desired.catWeight = (double)catWeightSpnr.getValue();
         feederState.state.desired.foodWeight = (double)foodWeightSpnr.getValue();
         
         feederState.state.reported.date = dateValue;
         feederState.state.reported.mode = 0;
+        feederState.state.reported.addFoodWeight = 0;
         feederState.state.reported.catWeight = (double)catWeightSpnr.getValue();
         feederState.state.reported.foodWeight = (double)foodWeightSpnr.getValue();
         String jsonState = objectMapper.writeValueAsString(feederState);
 
         try {
             // Send updated document to the shadow
-            device.update(jsonState);
+            //device = new AWSIotDevice(thingNameTxtFld.getText());
+            //awsIotClient.attach(device);
+            awsIotClient.publish(SystemConfig.CAT_FEEDER_UPDATE_TOPIC, AWSIotQos.QOS0, jsonState);
+            //device.update(jsonState);
         } catch (AWSIotException e) {
             System.out.println(System.currentTimeMillis() + ": update failed for " + jsonState);
         }
@@ -206,18 +215,21 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
         
         feederState.state.desired.date = dateValue;
         feederState.state.desired.mode = 1;
+        feederState.state.desired.addFoodWeight = amount;
         feederState.state.desired.catWeight = (double)catWeightSpnr.getValue();
         feederState.state.desired.foodWeight = updatedFoodWeight;
         
         feederState.state.reported.date = dateValue;
         feederState.state.reported.mode = 1;
+        feederState.state.reported.addFoodWeight = amount;
         feederState.state.reported.catWeight = (double)catWeightSpnr.getValue();
         feederState.state.reported.foodWeight = updatedFoodWeight;
         jsonState = objectMapper.writeValueAsString(feederState);
 
         try {
             // Send updated document to the shadow
-            device.update(jsonState);
+            awsIotClient.publish(SystemConfig.CAT_FEEDER_UPDATE_TOPIC, jsonState);
+            //device.update(jsonState);
         } catch (AWSIotException e) {
             System.out.println(System.currentTimeMillis() + ": update failed for " + jsonState);
         }
@@ -284,6 +296,25 @@ public class SmartCatFeederDevice extends javax.swing.JFrame {
             awsIotClient.attach(device);
             awsIotClient.connect();
             getFeederShadowState();
+            
+            awsIotClient.subscribe(new AWSIotTopic(SystemConfig.CAT_FEEDER_DELTA_TOPIC, AWSIotQos.QOS0){
+                    @Override
+                    public void onMessage(AWSIotMessage message) {
+                        System.out.println(message.getStringPayload());
+                        JSONObject reader = new JSONObject(message.getStringPayload());
+                        double feedAmount = reader.getJSONObject("state").getDouble("addFoodWeight");
+                        foodAmountSpnr.setValue(feedAmount);
+                        
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                feedBtn.doClick();
+                            }
+                        }).start();
+                    }
+                }
+            , false);
+
             statusLbl.setText("Connected");
             statusLbl.setForeground(Color.GREEN);
         } catch (AWSIotException ex) {

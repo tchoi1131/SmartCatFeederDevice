@@ -36,6 +36,8 @@ public class SystemConfig {
     public final static String CERTIFICATE_FILE_PATH = "cf78374c03-certificate.pem.crt";
     public final static String PRIVATE_KEY_FILE_PATH = "cf78374c03-private.pem.key";
     public final static String DATE_PATTERN = "yyyy-MM-dd";
+    public final static String CAT_FEEDER_DELTA_TOPIC = "$aws/things/SmartCatFeeder/shadow/update/delta";
+    public final static String CAT_FEEDER_UPDATE_TOPIC = "$aws/things/SmartCatFeeder/shadow/update";
     
     public static class KeyStorePasswordPair {
         public KeyStore keyStore;

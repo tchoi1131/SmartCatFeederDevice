@@ -20,6 +20,7 @@ public class SmartCatFeederState {
     public static class Document {
         public int date = 19000101;
         public byte mode = 0;   //0 = eat, 1 = feed
+        public double addFoodWeight = 0.0;
         public double catWeight = 0.0;
         public double foodWeight = 0.0;
     }
